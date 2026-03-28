@@ -227,34 +227,42 @@ function actualizarCharts() {
   }
 }
 
-// ── SIMULADOR DE SENSORES (RF-08) ──────────────
-// Genera movimientos aleatorios para pruebas sin hardware físico.
-// Reemplazar por llamadas reales a la API cuando el backend esté listo.
-const camionesEjemplo = ['CAM-001','CAM-002','CAM-003','CAM-055','CAM-112','CAM-204','CAM-318'];
-const estadosEjemplo  = ['Autorizado','Autorizado','Autorizado','Pendiente','Rechazado'];
+// ── CONEXIÓN CON FIREBASE (DATOS EN TIEMPO REAL) ──────────────
 
-function simularMovimiento() {
-  const now = new Date();
-  registrarMovimiento({
-    camionId: camionesEjemplo[Math.floor(Math.random() * camionesEjemplo.length)],
-    tipo:     Math.random() > 0.4 ? 'INGRESO' : 'SALIDA',
-    estado:   estadosEjemplo[Math.floor(Math.random() * estadosEjemplo.length)],
-    fecha:    now.toLocaleDateString('es-CL'),
-    hora:     now.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }),
-    ts:       now
-  });
-}
+// 1. Configuración (Usa los datos que tienes en tu archivo puente.py)
+const firebaseConfig = {
+    databaseURL: "https://logitrack-99f6e-default-rtdb.firebaseio.com/"
+};
 
-// Carga 6 movimientos de ejemplo al iniciar
-for (let i = 0; i < 6; i++) simularMovimiento();
+// 2. Inicializar la App
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
 
-// Simula un nuevo movimiento cada 8 segundos
-setInterval(simularMovimiento, 8000);
+// 3. Escuchar la base de datos
+const movimientosRef = db.ref('movimientos');
+
+// Cada vez que se añade un dato a 'movimientos', se dispara este evento
+movimientosRef.on('child_added', (snapshot) => {
+    const dato = snapshot.val();
+    
+    // Convertir el JSON de Firebase al formato que usa tu tabla
+    const now = new Date();
+    const movimientoFormateado = {
+        camionId: dato.camionId || 'SENSOR-01', // Si no trae ID, le ponemos uno genérico
+        tipo: dato.tipo, // Debe decir "INGRESO" o "SALIDA"
+        estado: dato.estado || 'Autorizado',
+        fecha: now.toLocaleDateString('es-CL'),
+        hora: now.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }),
+        ts: now
+    };
+
+    // Llamamos a la función que ya tenías para registrar en la tabla
+    registrarMovimiento(movimientoFormateado);
+});
 
 // ── NAVEGACIÓN SIDEBAR ─────────────────────────
 function showSection(e) {
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   e.currentTarget.classList.add('active');
 }
-
 
