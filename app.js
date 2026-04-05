@@ -62,7 +62,7 @@ function actualizarTabla() {
     <tr>
       <td><span class="truck-id">${m.camionId}</span></td>
       <td>
-        <span class="tipo-badge ${m.tipo === 'INGRESO' ? 'ingreso' : 'salida'}">
+        <span class="tipo-badge ${m.tipo === 'ENTRADA' ? 'ingreso' : 'salida'}">
           ${m.tipo}
         </span>
       </td>
@@ -82,15 +82,23 @@ function actualizarTabla() {
 
 // ── KPIs ───────────────────────────────────────
 function actualizarKPIs() {
-  const hoy      = new Date().toLocaleDateString('es-CL');
-  const hoyMovs  = movimientos.filter(m => m.fecha === hoy);
-  const ingresos = hoyMovs.filter(m => m.tipo === 'INGRESO').length;
-  const salidas  = hoyMovs.filter(m => m.tipo === 'SALIDA').length;
+  // Usamos el array global 'movimientos' que ya tiene todos los datos cargados
+  const todos = movimientos;
 
-  document.getElementById('kpi-total').textContent    = hoyMovs.length;
+  // Filtramos con total precisión (Mayúsculas exactas)
+  const ingresos = todos.filter(m => m.tipo === "ENTRADA").length;
+  const salidas  = todos.filter(m => m.tipo === "SALIDA").length;
+
+  // Calculamos la ocupación real
+  const enPlanta = ingresos - salidas;
+
+  // Inyectamos en el HTML (asegurándonos de no mostrar números negativos)
+  document.getElementById('kpi-total').textContent    = todos.length;
   document.getElementById('kpi-ingresos').textContent = ingresos;
   document.getElementById('kpi-salidas').textContent  = salidas;
-  document.getElementById('kpi-planta').textContent   = Math.max(0, ingresos - salidas);
+  document.getElementById('kpi-planta').textContent   = enPlanta < 0 ? 0 : enPlanta;
+
+  console.log(`Resumen: ↑${ingresos} ↓${salidas} = Planta:${enPlanta}`);
 }
 
 // ── PANEL DE ALERTAS ───────────────────────────
@@ -238,26 +246,45 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-// 3. Escuchar la base de datos
+// 3. Escuchar la base de datos de MOVIMIENTOS (VERSIÓN FINAL)
 const movimientosRef = db.ref('movimientos');
 
-// Cada vez que se añade un dato a 'movimientos', se dispara este evento
-movimientosRef.on('child_added', (snapshot) => {
-    const dato = snapshot.val();
+// 3. Escuchar la base de datos EN TIEMPO REAL TOTAL
+movimientosRef.on('value', (snapshot) => {
+    const data = snapshot.val();
     
-    // Convertir el JSON de Firebase al formato que usa tu tabla
-    const now = new Date();
-    const movimientoFormateado = {
-        camionId: dato.camionId || 'SENSOR-01', // Si no trae ID, le ponemos uno genérico
-        tipo: dato.tipo, // Debe decir "INGRESO" o "SALIDA"
-        estado: dato.estado || 'Autorizado',
-        fecha: now.toLocaleDateString('es-CL'),
-        hora: now.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }),
-        ts: now
-    };
+    // 1. Limpiamos el array local para que no se dupliquen datos al borrar/recargar
+    movimientos = []; 
+    
+    if (data) {
+        // 2. Convertimos el objeto de Firebase en un Array y lo ordenamos por tiempo
+        Object.keys(data).forEach((key) => {
+            const dato = data[key];
+            const partes = dato.timestamp ? dato.timestamp.split(' ') : ["", ""];
+            
+            // Formatear Fecha a Chile (DD-MM-AAAA)
+            let fechaChile = "--/--/----";
+            if (partes[0]) {
+                const f = partes[0].split('-'); 
+                fechaChile = `${f[2]}-${f[1]}-${f[0]}`; 
+            }
 
-    // Llamamos a la función que ya tenías para registrar en la tabla
-    registrarMovimiento(movimientoFormateado);
+            movimientos.unshift({
+                camionId: (dato.nombre || dato.id || 'S/N').toUpperCase(),
+                tipo:     dato.evento, 
+                estado:   dato.autorizado === false ? 'Rechazado' : 'Autorizado',
+                fecha:    fechaChile,
+                hora:     partes[1] ? partes[1].substring(0, 5) : "--:--",
+                ts:       new Date(dato.timestamp) // Para ordenar si fuera necesario
+            });
+        });
+    }
+
+    // 3. ACTUALIZACIÓN AUTOMÁTICA DE LA INTERFAZ
+    // Al usar .on('value'), estas funciones se ejecutan solas cada vez que tocas Firebase
+    actualizarTabla();
+    actualizarKPIs();
+    // (Opcional) agregarAlerta(movimientos[0]); // Solo si quieres la alerta del último
 });
 
 // ── NAVEGACIÓN SIDEBAR ─────────────────────────

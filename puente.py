@@ -1,72 +1,91 @@
 import serial
-import json
+import time
 import firebase_admin
 from firebase_admin import credentials, db
+import os
+from dotenv import load_dotenv
 
-# 1. Configuración de Firebase
-cred = credentials.Certificate("logitrack-99f6e-firebase-adminsdk-fbsvc-a5b2b5483f.json") # le pasamos la llave para acceder al servicio
-firebase_admin.initialize_app(cred, {
-    'databaseURL': 'https://logitrack-99f6e-default-rtdb.firebaseio.com/' # le damos la direccion de nuestro servicio
-})
+load_dotenv() # Carga las variables del .env
 
-# 2. Configuración del Puerto Serial
+# Ahora usas variables en lugar de escribir el texto directo
+url = os.getenv("FIREBASE_URL")
+ruta_llave = os.getenv("PATH_JSON")
+puerto = os.getenv("PUERTO_SERIAL")
+
+# 1. CONFIGURACIÓN DE FIREBASE
+cred = credentials.Certificate(ruta_llave)
+firebase_admin.initialize_app(cred, {'databaseURL': url})
+
+# 2. CONFIGURACIÓN SERIAL
 try:
-    ser = serial.Serial('COM7', 9600, timeout=1)
-    print("Conectado al puerto COM7 exitosamente. Esperando lecturas del sensor...")
-except:
-    print("Error: No se pudo abrir el puerto. Verifica que el Monitor Serie esté cerrado.")
+    arduino = serial.Serial(puerto, 9600, timeout=1)
+    time.sleep(2) 
+    print(f"--- Conectado a {puerto} ---")
+    print("Presiona Ctrl + C para salir de forma segura.")
+except Exception as e:
+    print(f"Error de conexión: {e}")
     exit()
 
-# --- SINCRONIZACIÓN INICIAL CON LA NUBE ---
-print("Sincronizando inventario con Firebase...")
-historico = db.reference('movimientos').get()
-vehiculos_en_planta = 0
+ultimo_marcaje = {} 
 
-if historico:
-    for dato in historico.values():
-        if dato.get('tipo') == 'INGRESO':
-            vehiculos_en_planta += 1
-        elif dato.get('tipo') == 'SALIDA':
-            vehiculos_en_planta -= 1
-            
-# Evitamos que el contador baje de 0 por algún error de datos antiguos
-vehiculos_en_planta = max(0, vehiculos_en_planta)
-print(f"Sincronización completa. Vehículos actualmente en planta: {vehiculos_en_planta}")
-# ------------------------------------------
-
-# 3. Bucle principal de escucha con cierre seguro
+# 3. BUCLE PRINCIPAL PROTEGIDO
 try:
-    ref = db.reference('movimientos') # declaramos la ruta de la base de datos 
     while True:
-        if ser.in_waiting > 0:
-            linea = ser.readline().decode('utf-8').strip()
+        if arduino.in_waiting > 0:
+            uid = arduino.readline().decode('utf-8').strip()
+            if not uid: continue # Ignorar líneas vacías
             
-            try:
-                datos_movimiento = json.loads(linea)
+            print(f"\nID Detectado: {uid}")
+
+            tiempo_actual = time.time()
+            if uid in ultimo_marcaje and (tiempo_actual - ultimo_marcaje[uid] < 5):
+                print(f"BLOQUEO: {uid} (Espera 5 seg)")
+                arduino.write(b'B') 
+                continue
+
+            ref_user = db.reference(f'autorizados/{uid}')
+            datos = ref_user.get()
+
+            if datos is None or datos.get('autorizado') == False:
+                print("Acceso DENEGADO")
+                arduino.write(b'P') 
+            else:
+                nombre = datos.get('nombre', 'S/N')
+                estado_actual = datos.get('estado', 'AFUERA')
+
+                if estado_actual == "AFUERA":
+                    print(f"ENTRADA: {nombre}")
+                    arduino.write(b'V') 
+                    nuevo_estado = "ADENTRO"
+                    evento = "ENTRADA"
+                else:
+                    print(f"SALIDA: {nombre}")
+                    arduino.write(b'R') 
+                    nuevo_estado = "AFUERA"
+                    evento = "SALIDA"
+
+                # Actualizar Firebase
+                ref_user.update({'estado': nuevo_estado})
+                db.reference('movimientos').push({
+                    'id': uid,
+                    'nombre': nombre,
+                    'evento': evento,
+                    'timestamp': time.strftime("%Y-%m-%d %H:%M:%S"),
+                    'autorizado': True
+                })
                 
-                # Añadimos ID genérico
-                if "camionId" not in datos_movimiento:
-                    datos_movimiento["camionId"] = "DETECTADO-US"
-                    
-                # --- LÓGICA DE CONTROL DE INVENTARIO ---
-                if datos_movimiento["tipo"] == "INGRESO":
-                    vehiculos_en_planta += 1
-                    ref.push(datos_movimiento)
-                    print(f"✅ Ingreso a Firebase. En planta: {vehiculos_en_planta}")
-                    
-                elif datos_movimiento["tipo"] == "SALIDA":
-                    if vehiculos_en_planta > 0:
-                        vehiculos_en_planta -= 1
-                        ref.push(datos_movimiento)
-                        print(f"📤 Salida a Firebase. En planta: {vehiculos_en_planta}")
-                    else:
-                        # Si hay 0 vehículos, ignoramos la lectura física del sensor
-                        print("🚫 Ignorando SALIDA: La planta está vacía (Posible falso positivo).")
+                ultimo_marcaje[uid] = tiempo_actual
 
-            except json.JSONDecodeError:
-                pass # Ignoramos ruido del puerto serial de forma silenciosa
+        time.sleep(0.1)
 
-# 4. Cierre elegante al presionar Ctrl + C
 except KeyboardInterrupt:
-    print("\n🛑 Programa detenido por el usuario. Cerrando conexión serial de forma segura...")
-    ser.close()
+    print("\n\nCerrando sistema...")
+    # Enviamos una señal de apagado a los LEDs si quieres (opcional)
+    # arduino.write(b'L') 
+    arduino.close()
+    print("Conexión serial cerrada. ¡Hasta luego!")
+
+except Exception as e:
+    print(f"\nError inesperado: {e}")
+    if 'arduino' in locals():
+        arduino.close()
