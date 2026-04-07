@@ -90,44 +90,55 @@ function actualizarKPIs() {
   const salidas  = todos.filter(m => m.tipo === "SALIDA").length;
 
   // Calculamos la ocupación real
-  const enPlanta = ingresos - salidas;
+  const enPlanta = Math.max(0, ingresos - salidas);
 
   // Inyectamos en el HTML (asegurándonos de no mostrar números negativos)
   document.getElementById('kpi-total').textContent    = todos.length;
   document.getElementById('kpi-ingresos').textContent = ingresos;
   document.getElementById('kpi-salidas').textContent  = salidas;
-  document.getElementById('kpi-planta').textContent   = enPlanta < 0 ? 0 : enPlanta;
+  document.getElementById('kpi-planta').textContent   = enPlanta;
 
   console.log(`Resumen: ↑${ingresos} ↓${salidas} = Planta:${enPlanta}`);
+  
 }
 
-// ── PANEL DE ALERTAS ───────────────────────────
+// ── PANEL DE ALERTAS ACTUALIZADO ───────────────────────────
 function agregarAlerta(mov) {
   const mapa = {
-    'INGRESO': { cls: 'ok',   icon: '✓', msg: `Camión ${mov.camionId} ingresó a la planta` },
+    'ENTRADA': { cls: 'ok',   icon: '✓', msg: `Camión ${mov.camionId} ingresó a la planta` },
     'SALIDA':  { cls: 'info', icon: '↗', msg: `Camión ${mov.camionId} salió de la planta`  }
   };
 
+  // 1. Preparamos el nuevo objeto de alerta
+  let nuevaAlerta;
+
   if (mov.estado === 'Rechazado') {
-    alertas.unshift({
+    nuevaAlerta = {
       cls:  'danger',
       icon: '✕',
       msg:  `Acceso rechazado: ${mov.camionId}`,
       hora: mov.hora
-    });
+    };
     contadorAlertas++;
   } else {
-    const t = mapa[mov.tipo];
-    alertas.unshift({ cls: t.cls, icon: t.icon, msg: t.msg, hora: mov.hora });
+    // Usamos 'ENTRADA' o 'SALIDA' según tu Firebase
+    const t = mapa[mov.tipo] || { cls: 'info', icon: '?', msg: `Movimiento: ${mov.camionId}` };
+    nuevaAlerta = { cls: t.cls, icon: t.icon, msg: t.msg, hora: mov.hora };
   }
 
-  // Actualizar badge
-  document.getElementById('badge-alertas').textContent =
-    contadorAlertas > 0 ? `${contadorAlertas} nuevas` : '0 nuevas';
+  // 2. LÓGICA DE REEMPLAZO (FIFO)
+  // unshift agrega al PRINCIPIO (índice 0)
+  alertas.unshift(nuevaAlerta);
 
-  // Renderizar lista (máximo 20 alertas visibles)
+  // 3. Si superamos las 5 alertas, eliminamos la última (la más vieja)
+  if (alertas.length > 5) {
+    alertas.pop(); // pop() elimina el último elemento del array
+  }
+
+
+  // Renderizar lista (Ahora solo renderiza lo que hay en el array, que máximo serán 5)
   const lista = document.getElementById('lista-alertas');
-  lista.innerHTML = alertas.slice(0, 20).map(a => `
+  lista.innerHTML = alertas.map(a => `
     <div class="alert-item ${a.cls}">
       <span class="alert-icon">${a.icon}</span>
       <div class="alert-body">
@@ -235,34 +246,44 @@ function actualizarCharts() {
   }
 }
 
-// ── CONEXIÓN CON FIREBASE (DATOS EN TIEMPO REAL) ──────────────
+// ── CONEXIÓN CON FIREBASE (VERSIÓN CORREGIDA) ──────────────
 
-// 1. Configuración (Usa los datos que tienes en tu archivo puente.py)
 const firebaseConfig = {
     databaseURL: "https://logitrack-99f6e-default-rtdb.firebaseio.com/"
 };
 
-// 2. Inicializar la App
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
-
-// 3. Escuchar la base de datos de MOVIMIENTOS (VERSIÓN FINAL)
 const movimientosRef = db.ref('movimientos');
 
-// 3. Escuchar la base de datos EN TIEMPO REAL TOTAL
+// Usamos .on('child_added') para las ALERTAS (solo la nueva)
+// Usamos .on('value') para la TABLA y KPIs (todo el conjunto)
+
+// 1. Escuchar solo el ÚLTIMO movimiento para la ALERTA
+movimientosRef.limitToLast(1).on('child_added', (snapshot) => {
+    const dato = snapshot.val();
+    if (dato) {
+        // Adaptamos los nombres de puente.py a lo que espera agregarAlerta
+        const movParaAlerta = {
+            camionId: (dato.nombre || 'S/N').toUpperCase(),
+            tipo:     dato.evento, 
+            estado:   dato.autorizado ? 'Autorizado' : 'Rechazado',
+            hora:     dato.timestamp ? dato.timestamp.split(' ')[1].substring(0, 5) : "--:--"
+        };
+        agregarAlerta(movParaAlerta);
+    }
+});
+
+// 2. Escuchar TODO para la TABLA y KPIs
 movimientosRef.on('value', (snapshot) => {
     const data = snapshot.val();
-    
-    // 1. Limpiamos el array local para que no se dupliquen datos al borrar/recargar
     movimientos = []; 
     
     if (data) {
-        // 2. Convertimos el objeto de Firebase en un Array y lo ordenamos por tiempo
         Object.keys(data).forEach((key) => {
             const dato = data[key];
             const partes = dato.timestamp ? dato.timestamp.split(' ') : ["", ""];
             
-            // Formatear Fecha a Chile (DD-MM-AAAA)
             let fechaChile = "--/--/----";
             if (partes[0]) {
                 const f = partes[0].split('-'); 
@@ -270,21 +291,18 @@ movimientosRef.on('value', (snapshot) => {
             }
 
             movimientos.unshift({
-                camionId: (dato.nombre || dato.id || 'S/N').toUpperCase(),
-                tipo:     dato.evento, 
+                camionId: (dato.nombre || 'S/N').toUpperCase(),
+                tipo:     dato.evento,
                 estado:   dato.autorizado === false ? 'Rechazado' : 'Autorizado',
                 fecha:    fechaChile,
                 hora:     partes[1] ? partes[1].substring(0, 5) : "--:--",
-                ts:       new Date(dato.timestamp) // Para ordenar si fuera necesario
+                ts:       new Date(dato.timestamp)
             });
         });
     }
 
-    // 3. ACTUALIZACIÓN AUTOMÁTICA DE LA INTERFAZ
-    // Al usar .on('value'), estas funciones se ejecutan solas cada vez que tocas Firebase
     actualizarTabla();
     actualizarKPIs();
-    // (Opcional) agregarAlerta(movimientos[0]); // Solo si quieres la alerta del último
 });
 
 // ── NAVEGACIÓN SIDEBAR ─────────────────────────
