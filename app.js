@@ -71,6 +71,7 @@ function actualizarTabla() {
       <td>
         <span class="badge ${
           m.estado === 'Autorizado' ? 'badge-green' :
+          m.estado === 'Baja del Sistema' ? 'badge-amber' :
           m.estado === 'Rechazado'  ? 'badge-red'   : 'badge-amber'
         }">
           ${m.estado}
@@ -289,11 +290,15 @@ movimientosRef.on('value', (snapshot) => {
                 const f = partes[0].split('-'); 
                 fechaChile = `${f[2]}-${f[1]}-${f[0]}`; 
             }
+            let estadoFinal = dato.estado; 
+            if (!estadoFinal) {
+                estadoFinal = dato.autorizado === false ? 'Rechazado' : 'Autorizado';
+            }
 
             movimientos.unshift({
                 camionId: (dato.nombre || 'S/N').toUpperCase(),
                 tipo:     dato.evento,
-                estado:   dato.autorizado === false ? 'Rechazado' : 'Autorizado',
+                estado:   estadoFinal,
                 fecha:    fechaChile,
                 hora:     partes[1] ? partes[1].substring(0, 5) : "--:--",
                 ts:       new Date(dato.timestamp)
@@ -306,8 +311,132 @@ movimientosRef.on('value', (snapshot) => {
 });
 
 // ── NAVEGACIÓN SIDEBAR ─────────────────────────
-function showSection(e) {
+function showSection(e, sectionId) {
+  // 1. Manejo visual del menú
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   e.currentTarget.classList.add('active');
+
+  // 2. Manejo de las secciones
+  document.querySelectorAll('.content-section').forEach(s => s.style.display = 'none');
+  document.getElementById(sectionId).style.display = 'flex';
+  // 3. GUARDAR EN MEMORIA (La clave)
+  localStorage.setItem('ultimaSeccion', sectionId);
 }
+
+// ── ENROLAR CON VERIFICACIÓN Y CATCH ──
+function enrolarTarjeta() {
+  const uid = document.getElementById('reg-uid').value.trim().toUpperCase();
+  const nombre = document.getElementById('reg-nombre').value.trim();
+
+  if (!uid || !nombre) {
+    alert("Completa los campos obligatorios.");
+    return;
+  }
+
+  db.ref('autorizados/' + uid).get().then((snapshot) => {
+    if (snapshot.exists()) {
+      alert(`Aviso: El UID ${uid} ya pertenece a ${snapshot.val().nombre}`);
+    } else {
+      db.ref('autorizados/' + uid).set({
+        nombre: nombre,
+        autorizado: true,
+        estado: "AFUERA"
+      })
+      .then(() => {
+        alert("Camión enrolado correctamente.");
+        document.getElementById('reg-uid').value = '';
+        document.getElementById('reg-nombre').value = '';
+      })
+      .catch((error) => {
+        console.error("Error al escribir en Firebase:", error);
+        alert("Error de red: No se pudo guardar el registro.");
+      });
+    }
+  }).catch((error) => {
+    console.error("Error de lectura:", error);
+    alert("Error al conectar con la base de datos.");
+  });
+}
+
+// ── ELIMINAR CON SALIDA AUTOMÁTICA Y CATCH ──
+function eliminarTarjeta() {
+  const uid = document.getElementById('del-uid').value.trim().toUpperCase();
+  if (!uid) return;
+
+  db.ref('autorizados/' + uid).get().then((snapshot) => {
+    if (!snapshot.exists()) {
+      alert("La tarjeta no existe.");
+      return;
+    }
+
+    const datos = snapshot.val();
+    const nombreFormateado = (datos.nombre || 'S/N').toUpperCase();
+    
+    const avisoEstado = datos.estado === 'ADENTRO' ? 
+      `\n\nIMPORTANTE: El camión ${nombreFormateado} está ADENTRO. Se registrará una salida manual.` : "";
+
+    if (confirm(`¿Eliminar acceso para ${nombreFormateado}?${avisoEstado}`)) {
+      
+      // CASO A: El camión está ADENTRO (Registramos salida primero)
+      if (datos.estado === 'ADENTRO') {
+        const ahora = new Date();
+        // Formateamos la fecha exactamante como la espera tu Python y tu tabla: AAAA-MM-DD HH:MM:SS
+        const timestampFormateado = ahora.getFullYear() + "-" + 
+                                   String(ahora.getMonth() + 1).padStart(2, '0') + "-" + 
+                                   String(ahora.getDate()).padStart(2, '0') + " " + 
+                                   ahora.toLocaleTimeString('es-CL', { hour12: false });
+
+        db.ref('movimientos').push({
+          id: uid,
+          nombre: nombreFormateado,
+          evento: 'SALIDA',
+          estado: 'Baja del Sistema',
+          autorizado: true,
+          timestamp: timestampFormateado
+        })
+        .then(() => {
+          // RECIÉN AQUÍ, cuando la salida se grabó, borramos la tarjeta
+          return db.ref('autorizados/' + uid).remove();
+        })
+        .then(() => {
+          alert("Registro eliminado y salida contabilizada con éxito.");
+          document.getElementById('del-uid').value = '';
+        })
+        .catch(error => alert("Error en el proceso: " + error.message));
+
+      } else {
+        // CASO B: El camión está AFUERA (Borramos directo)
+        db.ref('autorizados/' + uid).remove()
+        .then(() => {
+          alert("Credencial eliminada correctamente.");
+          document.getElementById('del-uid').value = '';
+        })
+        .catch(error => alert("Error al eliminar: " + error.message));
+      }
+    }
+  }).catch((error) => console.error("Error de conexión:", error));
+}
+
+// ── RECUPERAR NAVEGACIÓN AL RECARGAR ──
+window.addEventListener('load', () => {
+    const seccionGuardada = localStorage.getItem('ultimaSeccion');
+    
+    if (seccionGuardada && seccionGuardada !== 'sec-dashboard') {
+        // Buscamos el botón del menú que corresponde a esa sección para ponerlo azul
+        const botones = document.querySelectorAll('.nav-item');
+        let botonCorrecto;
+        
+        if (seccionGuardada === 'sec-registrar') botonCorrecto = botones[1];
+        // Si tuvieses más secciones, añadirías más "if" aquí
+        
+        if (botonCorrecto) {
+            // Simulamos el clic o llamamos a la función
+            showSection({ currentTarget: botonCorrecto }, seccionGuardada);
+        }
+    } else {
+        // Si no hay nada guardado, por defecto vamos al dashboard
+        // Pasamos null como evento porque no hubo clic manual
+        showSection(null, 'sec-dashboard');
+    }
+});
 

@@ -17,14 +17,14 @@
   <aside class="sidebar">
     <div class="sidebar-logo">Logi<span>Track</span></div>
     <nav>
-      <div class="nav-item active" onclick="showSection(event)">
+      <div class="nav-item active" onclick="showSection(event, 'sec-dashboard')">
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
           <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
         </svg>
         Dashboard
       </div>
-      <div class="nav-item" onclick="showSection(event)">
+      <div class="nav-item" onclick="showSection(event, 'sec-registrar')">
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M12 5v14M5 12h14"/>
         </svg>
@@ -55,8 +55,8 @@
     </div>
   </aside>
 
-  <main class="main">
-
+<main class="main">
+  <section id="sec-dashboard" class="content-section">
     <div class="topbar">
       <div>
         <div class="topbar-title">Panel de Control</div>
@@ -67,7 +67,7 @@
 
     <div class="kpi-grid">
       <div class="kpi-card blue">
-        <div class="kpi-label">Movimientos hoy</div>
+        <div class="kpi-label">Movimientos Hoy</div>
         <div class="kpi-value" id="kpi-total">0</div>
         <div class="kpi-sub">Ingresos + salidas</div>
       </div>
@@ -82,7 +82,7 @@
         <div class="kpi-sub">Camiones retirados</div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-label">En planta ahora</div>
+        <div class="kpi-label">En Planta Ahora</div>
         <div class="kpi-value" id="kpi-planta">0</div>
         <div class="kpi-sub">Vehículos activos</div>
       </div>
@@ -92,80 +92,121 @@
       <div class="card">
         <div class="card-header">
           <span class="card-title">Movimientos recientes</span>
-          <span class="badge badge-blue" id="badge-live">● Sistema en la Nube</span>
+          <span class="badge badge-blue">Sistema en la Nube</span>
         </div>
         <div class="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>Camión</th><th>Tipo</th><th>Fecha</th><th>Hora</th><th>Estado</th>
+                <th>Camión</th>
+                <th>Tipo</th>
+                <th>Fecha</th>
+                <th>Hora</th>
+                <th>Estado</th>
               </tr>
             </thead>
             <tbody id="tabla-movimientos">
-              <tr><td colspan="5" style="text-align:center;color:var(--muted);padding:32px">Sin movimientos registrados</td></tr>
-            </tbody>
+              </tbody>
           </table>
         </div>
       </div>
+
       <div class="card">
         <div class="card-header">
           <span class="card-title">Alertas</span>
         </div>
         <div class="alerts-list" id="lista-alertas">
-          <div style="text-align:center;color:var(--muted);font-size:13px;padding:24px">Sin alertas por ahora</div>
-        </div>
+          </div>
       </div>
     </div>
 
-    <!-- Gráfico de Barra -->
     <div class="charts-grid">
       <div class="card">
-        <div class="card-header">
-          <span class="card-title">Movimientos por hora</span>
-          <span class="badge badge-blue">Hoy</span>
-        </div>
+        <div class="card-header"><span class="card-title">Movimientos por hora</span></div>
         <div class="chart-body"><canvas id="chart-horas"></canvas></div>
       </div>
-      <!-- Gráfico de Líneas Ingresos/Salidas -->
       <div class="card">
-        <div class="card-header">
-          <span class="card-title">Ingresos vs Salidas</span>
-          <span class="badge badge-green">Semana</span>
-        </div>
+        <div class="card-header"><span class="card-title">Ingresos vs Salidas</span></div>
         <div class="chart-body"><canvas id="chart-semana"></canvas></div>
       </div>
     </div>
+  </section>
 
-    <div class="card">
-      <div class="card-header">
-        <span class="card-title">Registrar movimiento manual</span>
-        <span class="badge badge-blue">RF-01 / RF-02</span>
-      </div>
-      <div class="form-grid">
-        <div class="form-group">
-          <label for="f-camion">ID Camión</label>
-          <input type="text" id="f-camion" placeholder="Ej: CAM-001" />
-        </div>
-        <div class="form-group">
-          <label for="f-tipo">Tipo</label>
-          <select id="f-tipo">
-            <option value="ENTRADA">Ingreso</option>
-            <option value="SALIDA">Salida</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label for="f-estado">Estado</label>
-          <select id="f-estado">
-            <option value="Autorizado">Autorizado</option>
-            <option value="Pendiente">Pendiente</option>
-            <option value="Rechazado">Rechazado</option>
-          </select>
-        </div>
-        <button class="btn-primary" onclick="registrarMovimiento()">+ Registrar</button>
+  <section id="sec-registrar" class="content-section" style="display: none;">
+    <div class="topbar">
+      <div>
+        <div class="topbar-title">Gestión de Acceso y Credenciales</div>
+        <div class="topbar-meta">Enrolamiento de tags y registros de emergencia</div>
       </div>
     </div>
 
-  </main>
+    <div style="display: flex; flex-direction: column; gap: 24px;">
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Registro de Acceso Manual (Emergencia)</span>
+          <span class="badge badge-blue">Manual</span>
+        </div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>ID Camión</label>
+            <input type="text" id="f-camion" placeholder="Ej: CAM-001" />
+          </div>
+          <div class="form-group">
+            <label>Tipo</label>
+            <select id="f-tipo">
+              <option value="ENTRADA">Ingreso</option>
+              <option value="SALIDA">Salida</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Estado</label>
+            <select id="f-estado">
+              <option value="Autorizado">Autorizado</option>
+              <option value="Rechazado">Rechazado</option>
+            </select>
+          </div>
+          <button class="btn-primary" onclick="registrarMovimiento()">+ Registrar</button>
+        </div>
+      </div>
+      
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Enrolar Nueva Credencial RFID</span>
+          <span class="badge badge-amber">Admin</span>
+        </div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>UID de Tarjeta</label>
+            <input type="text" id="reg-uid" placeholder="Ej: A3B2C5D9" />
+          </div>
+          <div class="form-group">
+            <label>Nombre / Patente</label>
+            <input type="text" id="reg-nombre" placeholder="Ej: CAMION-03" />
+          </div>
+          <button class="btn-primary" onclick="enrolarTarjeta()">+ Enrolar</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Eliminar Credencial</span>
+          <span class="badge badge-red">Peligro</span>
+        </div>
+        <div class="form-grid" style="grid-template-columns: 1fr auto;">
+          <div class="form-group">
+            <label>UID de Tarjeta a dar de baja</label>
+            <input type="text" id="del-uid" placeholder="Pegue el UID aquí" />
+          </div>
+          <button class="btn-primary" style="background: var(--red);" onclick="eliminarTarjeta()">Eliminar Acceso</button>
+        </div>
+      </div>
+
+      
+
+    </div>
+  </section>
+</main>
 </div>
 <script src="app.js"></script>
 </body>
