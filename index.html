@@ -149,8 +149,8 @@
         </div>
         <div class="form-grid">
           <div class="form-group">
-            <label>ID Camión</label>
-            <input type="text" id="f-camion" placeholder="Ej: CAM-001" />
+            <label>ID / Nombre Camión</label>
+            <input type="text" id="f-camion" placeholder="Ej: A3B2C5D9 / CAM-001" />
           </div>
           <div class="form-group">
             <label>Tipo</label>
@@ -159,14 +159,7 @@
               <option value="SALIDA">Salida</option>
             </select>
           </div>
-          <div class="form-group">
-            <label>Estado</label>
-            <select id="f-estado">
-              <option value="Autorizado">Autorizado</option>
-              <option value="Rechazado">Rechazado</option>
-            </select>
-          </div>
-          <button class="btn-primary" onclick="registrarMovimiento()">+ Registrar</button>
+          <button class="btn-primary" onclick="registrarMovimientoManual()">+ Registrar</button>
         </div>
       </div>
       

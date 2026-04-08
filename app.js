@@ -72,6 +72,7 @@ function actualizarTabla() {
         <span class="badge ${
           m.estado === 'Autorizado' ? 'badge-green' :
           m.estado === 'Baja del Sistema' ? 'badge-amber' :
+          m.estado === 'Acceso Manual'    ? 'badge-blue':
           m.estado === 'Rechazado'  ? 'badge-red'   : 'badge-amber'
         }">
           ${m.estado}
@@ -321,6 +322,91 @@ function showSection(e, sectionId) {
   document.getElementById(sectionId).style.display = 'flex';
   // 3. GUARDAR EN MEMORIA (La clave)
   localStorage.setItem('ultimaSeccion', sectionId);
+}
+
+async function registrarMovimientoManual() {
+  const input = document.getElementById('f-camion').value.trim().toUpperCase();
+  const tipo = document.getElementById('f-tipo').value;
+
+  if (!input) {
+    alert("Ingresa un UID o el Nombre del camión.");
+    return;
+  }
+
+  try {
+    // 1. Obtener la lista de autorizados desde la raíz
+    const snapshot = await db.ref('autorizados').get();
+    
+    if (!snapshot.exists()) {
+      alert("No hay camiones registrados en la base de datos.");
+      return;
+    }
+
+    const autorizados = snapshot.val();
+    let datosCamion = null;
+    let uidEncontrado = null;
+
+    // 2. BUSQUEDA INTELIGENTE
+    // Primero probamos si el input es un UID (la llave de la carpeta en tu imagen)
+    if (autorizados[input]) {
+      uidEncontrado = input;
+      datosCamion = autorizados[input];
+    } else {
+      // Si no es UID, buscamos por el campo "nombre" ignorando mayúsculas/minúsculas
+      uidEncontrado = Object.keys(autorizados).find(key => {
+        const nombreEnBD = autorizados[key].nombre ? autorizados[key].nombre.toUpperCase() : "";
+        return nombreEnBD === input;
+      });
+
+      if (uidEncontrado) {
+        datosCamion = autorizados[uidEncontrado];
+      }
+    }
+
+    // 3. VALIDACIÓN DE EXISTENCIA
+    if (!datosCamion) {
+      alert(`El vehículo "${input}" no existe en el sistema. Verifique el nombre o UID.`);
+      return;
+    }
+
+    // 4. VALIDACIÓN DE ESTADO (Candados de seguridad)
+    if (tipo === 'ENTRADA' && datosCamion.estado === 'ADENTRO') {
+      alert(`Bloqueo: ${datosCamion.nombre.toUpperCase()} ya figura ADENTRO de la planta.`);
+      return;
+    }
+    if (tipo === 'SALIDA' && datosCamion.estado === 'AFUERA') {
+      alert(`Bloqueo: ${datosCamion.nombre.toUpperCase()} ya está AFUERA. No puede marcar salida.`);
+      return;
+    }
+
+    // 5. REGISTRO DEL MOVIMIENTO
+    const ahora = new Date();
+    const tsFormateado = ahora.getFullYear() + "-" + 
+                         String(ahora.getMonth() + 1).padStart(2, '0') + "-" + 
+                         String(ahora.getDate()).padStart(2, '0') + " " + 
+                         ahora.toLocaleTimeString('es-CL', { hour12: false });
+
+    await db.ref('movimientos').push({
+      id: uidEncontrado,
+      nombre: datosCamion.nombre.toUpperCase(),
+      evento: tipo,
+      estado: 'Acceso Manual',
+      autorizado: true,
+      timestamp: tsFormateado
+    });
+
+    // 6. ACTUALIZAR ESTADO EN LA FICHA MAESTRA
+    await db.ref(`autorizados/${uidEncontrado}`).update({
+      estado: tipo === 'ENTRADA' ? 'ADENTRO' : 'AFUERA'
+    });
+
+    alert(`Acceso Manual de ${tipo} registrado para: ${datosCamion.nombre.toUpperCase()}`);
+    document.getElementById('f-camion').value = '';
+
+  } catch (error) {
+    console.error("Error técnico:", error);
+    alert("Error de comunicación: " + error.message);
+  }
 }
 
 // ── ENROLAR CON VERIFICACIÓN Y CATCH ──
