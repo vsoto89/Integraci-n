@@ -3,7 +3,6 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <!--<title>LogiTrack — Control de Acceso Vehicular</title> -->
   <title>Manufacturas Chile LTDA</title>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Syne:wght@600;700;800&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="styles.css"/>
@@ -67,7 +66,7 @@
 
     <div class="kpi-grid">
       <div class="kpi-card blue">
-        <div class="kpi-label">Movimientos Hoy</div>
+        <div class="kpi-label">Movimientos</div>
         <div class="kpi-value" id="kpi-total">0</div>
         <div class="kpi-sub">Ingresos + salidas</div>
       </div>
@@ -88,6 +87,17 @@
       </div>
     </div>
 
+    <div class="charts-grid">
+      <div class="card">
+        <div class="card-header"><span class="card-title">Movimientos por hora en el día</span></div>
+        <div class="chart-body"><canvas id="chart-horas"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Ingresos vs Salidas en la semana</span></div>
+        <div class="chart-body"><canvas id="chart-semana"></canvas></div>
+      </div>
+    </div>
+
     <div class="center-grid">
       <div class="card">
         <div class="card-header">
@@ -105,8 +115,7 @@
                 <th>Estado</th>
               </tr>
             </thead>
-            <tbody id="tabla-movimientos">
-              </tbody>
+            <tbody id="tabla-movimientos"></tbody>
           </table>
         </div>
       </div>
@@ -115,19 +124,7 @@
         <div class="card-header">
           <span class="card-title">Alertas</span>
         </div>
-        <div class="alerts-list" id="lista-alertas">
-          </div>
-      </div>
-    </div>
-
-    <div class="charts-grid">
-      <div class="card">
-        <div class="card-header"><span class="card-title">Movimientos por hora</span></div>
-        <div class="chart-body"><canvas id="chart-horas"></canvas></div>
-      </div>
-      <div class="card">
-        <div class="card-header"><span class="card-title">Ingresos vs Salidas</span></div>
-        <div class="chart-body"><canvas id="chart-semana"></canvas></div>
+        <div class="alerts-list" id="lista-alertas"></div>
       </div>
     </div>
   </section>
@@ -162,7 +159,7 @@
           <button class="btn-primary" onclick="registrarMovimientoManual()">+ Registrar</button>
         </div>
       </div>
-      
+
       <div class="card">
         <div class="card-header">
           <span class="card-title">Enrolar Nueva Credencial RFID</span>
@@ -195,12 +192,18 @@
         </div>
       </div>
 
-      
-
     </div>
   </section>
 </main>
 </div>
-<script src="app.js"></script>
+
+<!-- ═══ Scripts modulares (orden importa) ════════ -->
+<script src="js/config.js"></script>       <!-- 1. Firebase init -->
+<script src="js/reloj.js"></script>        <!-- 2. Reloj -->
+<script src="js/charts.js"></script>       <!-- 3. Gráficos -->
+<script src="js/dashboard.js"></script>    <!-- 4. Tabla, KPIs, alertas, listeners -->
+<script src="js/credenciales.js"></script> <!-- 5. Enrolar, eliminar, registro manual -->
+<script src="js/navegacion.js"></script>   <!-- 6. Sidebar y persistencia -->
+
 </body>
 </html>
