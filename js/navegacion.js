@@ -1,37 +1,36 @@
 /* ═══════════════════════════════════════════════
-   LogiTrack — navegacion.js
-   Control del sidebar y persistencia de sección
+   LogiTrack — navegacion.js (Versión Sin Parpadeo)
 ═══════════════════════════════════════════════ */
 
-// ── Mostrar sección activa ──────────────────────
-function showSection(e, sectionId) {
-  // Actualizar estilo del menú
+window.showSection = function(e, sectionId) {
+  // 1. Limpiar estados previos
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  if (e && e.currentTarget) e.currentTarget.classList.add('active');
-
-  // Mostrar/ocultar secciones
   document.querySelectorAll('.content-section').forEach(s => s.style.display = 'none');
-  document.getElementById(sectionId).style.display = 'flex';
 
-  // Persistir selección
-  localStorage.setItem('ultimaSeccion', sectionId);
-}
-
-// ── Recuperar sección al recargar ───────────────
-window.addEventListener('load', () => {
-  const seccionGuardada = localStorage.getItem('ultimaSeccion');
-
-  if (seccionGuardada && seccionGuardada !== 'sec-dashboard') {
-    const botones = document.querySelectorAll('.nav-item');
-    let botonCorrecto;
-
-    if (seccionGuardada === 'sec-registrar') botonCorrecto = botones[1];
-    // Añadir más secciones aquí si se agregan en el futuro
-
-    if (botonCorrecto) {
-      showSection({ currentTarget: botonCorrecto }, seccionGuardada);
-    }
-  } else {
-    showSection(null, 'sec-dashboard');
+  // 2. Activar la sección visualmente
+  const targetSection = document.getElementById(sectionId);
+  if (targetSection) {
+      targetSection.style.display = 'flex';
   }
+
+  // 3. Activar el botón del menú
+  // Si viene de un clic (e no es null), usamos e.currentTarget
+  if (e && e.currentTarget) {
+      e.currentTarget.classList.add('active');
+  } 
+  // Si viene de la carga de página, buscamos el botón por su onclick
+  else {
+      const btn = document.querySelector(`.nav-item[onclick*="${sectionId}"]`);
+      if (btn) btn.classList.add('active');
+  }
+
+  localStorage.setItem('ultimaSeccion', sectionId);
+};
+
+// ── Ejecución inmediata al cargar ──
+window.addEventListener('DOMContentLoaded', () => {
+  const seccionGuardada = localStorage.getItem('ultimaSeccion') || 'sec-dashboard';
+  
+  // Llamamos a la función sin evento para que ella busque el botón correcto
+  showSection(null, seccionGuardada);
 });
