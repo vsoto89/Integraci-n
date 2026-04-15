@@ -2,5 +2,6 @@ venv/
 .venv/
 __pycache__/
 *.pyc
-*.json
+acceso_firebase.json
 .env
+**/.*

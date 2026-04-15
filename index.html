@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Manufacturas Chile LTDA</title>
+  <title>LogiTrack Chile LTDA</title>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Syne:wght@600;700;800&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="styles.css"/>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -40,13 +40,6 @@
           <line x1="8" y1="17" x2="16" y2="17"/>
         </svg>
         Reportes
-      </div>
-      <div class="nav-item" onclick="showSection(event)">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-          <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-        </svg>
-        Alertas
       </div>
     </nav>
     <div class="sidebar-footer">
@@ -211,7 +204,7 @@
   </div>
 
   <div class="card">
-    <div class="form-grid" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)) auto;">
+    <div class="form-grid" style="grid-template-columns: repeat(auto-fit, minmax(140px, auto)); justify-content: start; gap: 15px;">
       <div class="form-group">
         <label>Período</label>
         <select id="rep-periodo" onchange="manejarCambioPeriodo()">
@@ -232,7 +225,7 @@
         </div>
       </div>
       <div class="form-group">
-        <label>ID Camión</label>
+        <label>ID Camión / Nombre</label>
         <input type="text" id="rep-id" placeholder="Filtrar ID...">
       </div>
       <div class="form-group">
