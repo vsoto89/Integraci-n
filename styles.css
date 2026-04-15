@@ -470,8 +470,69 @@ input:focus, select:focus {
   .charts-grid { grid-template-columns: 1fr; }
 }
 
-@media (max-width: 700px) {
-  .sidebar  { display: none; }
-  .main     { margin-left: 0; padding: 16px; }
-  .form-grid { grid-template-columns: 1fr 1fr; }
+
+/* ── DISEÑO PARA CELULARES (REEMPLAZO) ── */
+@media (max-width: 768px) {
+  .layout {
+    flex-direction: column; /* Apila el menú sobre el contenido */
+  }
+
+  .sidebar {
+    /* Reseteamos el anclaje lateral para que sea una barra superior */
+    position: relative !important; 
+    width: 100% !important;
+    height: auto !important;
+    min-height: 60px;
+    padding: 10px 20px !important;
+    flex-direction: row !important; /* Iconos uno al lado del otro */
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+  }
+
+  .sidebar-logo {
+    border-bottom: none !important;
+    padding: 0 !important;
+    margin-bottom: 0 !important;
+    font-size: 18px !important;
+  }
+
+  nav {
+    display: flex !important;
+    flex-direction: row !important; /* Forzamos fila */
+    gap: 5px;
+    margin-top: 0 !important;
+  }
+
+  .nav-item {
+    padding: 8px 12px !important;
+    font-size: 0 !important; /* Oculta el texto, deja el icono */
+    border-left: none !important;
+    border-bottom: 2px solid transparent;
+  }
+
+  .nav-item.active {
+    border-bottom: 2px solid #5B8FFF;
+    background: none !important;
+  }
+
+  .nav-icon {
+    margin-right: 0 !important;
+    width: 22px;
+    height: 22px;
+  }
+
+  .sidebar-footer {
+    display: none !important; /* Quitamos el punto verde en móvil */
+  }
+
+  .main {
+    margin-left: 0 !important; /* Quitamos el margen lateral de escritorio */
+    padding: 15px !important;
+    width: 100%;
+  }
+
+  .kpi-grid {
+    grid-template-columns: 1fr 1fr !important; /* KPIs de 2 en 2 */
+  }
 }
